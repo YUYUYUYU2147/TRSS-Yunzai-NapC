@@ -860,6 +860,7 @@ Bot.adapter.push(
         recallMsg: this.recallMsg.bind(this, i),
         getForwardMsg: this.getForwardMsg.bind(this, i),
         sendForwardMsg: this.sendFriendForwardMsg.bind(this, i),
+        makeForwardMsg: Bot.makeForwardMsg,
         sendFile: this.sendFriendFile.bind(this, i),
         getInfo: this.getFriendInfo.bind(this, i),
         getSimpleInfo: this.getFriendInfo.bind(this, i),
