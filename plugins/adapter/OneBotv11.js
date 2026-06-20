@@ -1109,11 +1109,14 @@ Bot.adapter.push(
         },
       }
 
-      if (
-        (data.bot.cookies["qun.qq.com"] = (
-          await data.bot.sendApi("get_cookies", { domain: "qun.qq.com" }).catch(i => i.error)
-        ).cookies)
-      )
+      const getCookiesSafe = async (domain) => {
+        try {
+          const res = await data.bot.sendApi("get_cookies", { domain })
+          return res.cookies || ""
+        } catch { return "" }
+      }
+
+      if ((data.bot.cookies["qun.qq.com"] = await getCookiesSafe("qun.qq.com")))
         for (const i of [
           "aq",
           "connect",
@@ -1133,14 +1136,11 @@ Bot.adapter.push(
           "v",
           "vip",
           "y",
-        ]) {
-          const domain = `${i}.qq.com`
-          data.bot.cookies[domain] = await data.bot
-            .sendApi("get_cookies", { domain })
-            .then(i => i.cookies)
-            .catch(i => i.error)
-        }
-      data.bot.bkn = (await data.bot.sendApi("get_csrf_token").catch(i => i.error)).token
+        ])
+          data.bot.cookies[`${i}.qq.com`] = await getCookiesSafe(`${i}.qq.com`)
+      try {
+        data.bot.bkn = (await data.bot.sendApi("get_csrf_token")).token || ""
+      } catch { data.bot.bkn = "" }
 
       data.bot.getFriendMap()
       data.bot.getGroupMemberMap()
