@@ -10,12 +10,7 @@ export class nbnhhsh extends plugin {
       priority: 5000,
       rule: [
         { reg: '^#?(缩写|啥意思)\\s*(.+)$', fnc: 'query' },
-        { reg: '^[A-Za-z0-9]{2,20}$', fnc: 'autoQuery', log: false, filter: (e) => {
-          if (!e?.raw_message || e.raw_message.length > 20) return false
-          if (e.message?.some?.(i => i.type === 'at') || e.source || e.quote || e.hasReply) return false
-          if (/[{[]?(image|img|at|CQ:|face)/i.test(e.raw_message)) return false
-          return true
-        }}
+        { reg: '^[A-Za-z0-9]{2,20}$', fnc: 'autoQuery', log: false }
       ]
     })
   }
@@ -28,6 +23,10 @@ export class nbnhhsh extends plugin {
   }
 
   async autoQuery(e) {
+    if (!e?.raw_message || e.raw_message.length > 20) return
+    if (typeof e.message === 'string') return
+    if (e.message?.some?.(i => i.type === 'image' || i.type === 'face' || i.type === 'mface' || i.type === 'video' || i.type === 'at')) return
+    if (e.source || e.quote || e.hasReply) return
     await this.fetchAndReply(e, e.raw_message, true)
     return true
   }
