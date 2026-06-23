@@ -81,8 +81,8 @@ export class srexchange extends plugin {
 
 
             args = [
-                ['绝区零前瞻', 73603011, [0,1,2,3,4,5], '小橙子阿'], /* 祈鸢ya https://www.miyoushe.com/zzz/accountCenter/followList?id=137101761       https://bbs-api.miyoushe.com/painter/api/user_instant/search/list?keyword=菲林统计&uid=137101761&size=20&offset=0&sort_type=2 */
-                ['菲林资源统计', 285802042, [0], 'HoYo青枫'], /* HoYo青枫 https://www.miyoushe.com/zzz/accountCenter/followList?id=285802042       https://bbs-api.miyoushe.com/painter/api/user_instant/search/list?keyword=菲林资源统计&uid=285802042&size=20&offset=0&sort_type=2 */
+                ['版本菲林汇总', 74642625, [0,1,2,3,4,5], '冰是真的菜QAQ'], /* 祈鸢ya https://www.miyoushe.com/zzz/accountCenter/followList?id=137101761       https://bbs-api.miyoushe.com/painter/api/user_instant/search/list?keyword=菲林统计&uid=137101761&size=20&offset=0&sort_type=2 */
+                ['菲林资源统计', 285802042, [0,1,2,3,4,5], 'HoYo青枫'], /* HoYo青枫 https://www.miyoushe.com/zzz/accountCenter/followList?id=285802042       https://bbs-api.miyoushe.com/painter/api/user_instant/search/list?keyword=菲林资源统计&uid=285802042&size=20&offset=0&sort_type=2 */
                
             ]
         }

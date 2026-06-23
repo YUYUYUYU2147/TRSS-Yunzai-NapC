@@ -44,8 +44,10 @@ Bot.adapter.push(
 
     /** 文件转 base64 */
     async makeFile(file, opts) {
-      // 如果文件已经是 base64 格式，直接返回
       if (typeof file === 'string' && file.startsWith('base64://')) {
+        return file
+      }
+      if (typeof file === 'string' && file.startsWith('file://')) {
         return file
       }
       file = await Bot.Buffer(file, {
@@ -70,7 +72,11 @@ Bot.adapter.push(
       const files = []
       for (let i of msg) {
         if (typeof i !== "object") i = { type: "text", data: { text: i } }
-        else if (!i.data) i = { type: i.type, data: { ...i, type: undefined } }
+        else if (!i.data) {
+          const { type, ...rest } = i
+          i = { type, data: {} }
+          for (const k in rest) if (rest[k] !== undefined) i.data[k] = rest[k]
+        }
 
         switch (i.type) {
           case "at":

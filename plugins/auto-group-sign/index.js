@@ -48,7 +48,7 @@ async function tick() {
   const bots = Bot?.bots && typeof Bot.bots === 'object'
     ? Object.values(Bot.bots).filter(b => b && typeof b.sendApi === 'function')
     : []
-  for (const bot of bots) await doSign(bot.uin)
+  for (const bot of bots) await doSign(bot)
 }
 
 const JOB_NAME = 'auto-group-sign-check'

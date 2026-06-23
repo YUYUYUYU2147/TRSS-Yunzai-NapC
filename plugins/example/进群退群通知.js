@@ -1,34 +1,55 @@
-import fetch from 'node-fetch';
+import fs from 'fs/promises'
+import path from 'path'
 
-const voiceAPI = 'https://yuyin.3198550236.fun/';
-const defaultSpeaker = '琪亚娜天穹游侠薪炎之律者终焉之律者'; // 设置默认语音角色
+const vitsApiBase = 'http://127.0.0.1:5091'
+const speakers = [
+  '派蒙','凯亚','安柏','丽莎','琴','香菱','枫原万叶','迪卢克','温迪','可莉','早柚','托马','芭芭拉',
+  '优菈','云堇','钟离','魈','凝光','雷电将军','北斗','甘雨','七七','刻晴','神里绫华','戴因斯雷布',
+  '雷泽','神里绫人','罗莎莉亚','阿贝多','八重神子','宵宫','荒泷一斗','九条裟罗','夜兰','珊瑚宫心海',
+  '五郎','散兵','女士','达达利亚','莫娜','班尼特','申鹤','行秋','烟绯','久岐忍','辛焱','砂糖',
+  '胡桃','重云','菲谢尔','诺艾尔','迪奥娜','鹿野院平藏',
+  '丽塔','伊甸','八重樱','刻晴bh3','卡莲','卡萝尔','姬子','布洛妮娅','希儿','帕朵菲莉丝',
+  '幽兰黛尔','德丽莎','格蕾修','梅比乌斯','渡鸦','爱莉希雅','琪亚娜','符华','维尔薇',
+  '芽衣','菲谢尔bh3','阿波尼亚','空律','识律'
+]
 
-async function synthesizeVoice(text, speaker = defaultSpeaker, speed = 1.0) {
-    const url = `${voiceAPI}tts?text=${encodeURIComponent(text)}&speaker=${speaker}&speed=${speed}`;
-    logger.mark('[语音] 合成URL:', url);
-    return url;
-}
+const defaultSpeaker = '派蒙';
 
-async function downloadVoice(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`下载语音失败: ${res.status}`);
-    const arrayBuffer = await res.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    return `base64://${buffer.toString('base64')}`;
+/** vits-yunzai-plugin HTTP API 语音合成 */
+async function apiTts(text, speaker) {
+  const speakerName = speakers.find(s => s.includes(speaker) || speaker.includes(s)) || defaultSpeaker
+  const synthRes = await fetch(`${vitsApiBase}/api/synthesize`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ speaker: speakerName, text })
+  })
+  if (!synthRes.ok) throw new Error(`API合成失败: ${synthRes.status}`)
+  const synthData = await synthRes.json()
+  if (!synthData.ok) throw new Error(`API合成错误: ${synthData.message || '未知'}`)
+
+  const audioUrl = `${vitsApiBase}${synthData.data.audioUrl}`
+  const audioRes = await fetch(audioUrl)
+  if (!audioRes.ok) throw new Error(`获取音频失败: ${audioRes.status}`)
+  const rawBuf = Buffer.from(await audioRes.arrayBuffer())
+
+  const tmpIn = `/tmp/voice-${Date.now()}-raw.wav`
+  const tmpOut = `/tmp/voice-${Date.now()}.wav`
+  await fs.writeFile(tmpIn, rawBuf)
+  await Bot.exec(`ffmpeg -y -i "${tmpIn}" -acodec pcm_s16le -ar 24000 -ac 1 "${tmpOut}"`, { timeout: 10000 })
+  await fs.unlink(tmpIn).catch(() => {})
+  const buf = await fs.readFile(tmpOut)
+  await fs.unlink(tmpOut).catch(() => {})
+  return `base64://${buf.toString('base64')}`
 }
 
 class Voice {
-    static async sendVoice(e, text, speaker = defaultSpeaker, speed = 1.0) {
+    static async sendVoice(e, text, speaker = defaultSpeaker) {
         try {
-            const url = await synthesizeVoice(text, speaker, speed);
-            // napcat兼容：先下载音频再转base64发送
-            const base64 = await downloadVoice(url);
-            await e.reply({ type: 'record', file: base64 });
-            logger.mark('[语音] 发送成功');
-        } catch (error) {
-            logger.error('[语音] 发送失败:', error.message);
-            // 失败时发文字兜底
-            await e.reply(text);
+            const url = await apiTts(text, speaker)
+            await e.reply(segment.record(url))
+            logger.mark('[语音] vits API发送成功')
+        } catch (err) {
+            logger.warn('[语音] vits API失败:', err.message)
         }
     }
 }
@@ -69,21 +90,15 @@ class Newcomer extends plugin {
         const cooldown = 30;
         const key = `Yz:newcomers:${e.group_id}`;
 
-        // 调试：先删除旧缓存，确保每次都能触发
         await redis.del(key);
-        
-        // 如需启用冷却，注释掉上面那行即可
-        // if (await redis.get(key)) {
-        //     logger.mark('[进群] 冷却中，跳过');
-        //     return;
-        // }
         await redis.set(key, '1', { EX: cooldown });
 
         const speakerKey = 'newcomer_speaker';
         const speaker = await getCurrentSpeaker(speakerKey, defaultSpeaker);
         logger.mark('[进群] 角色:', speaker, '文本:', welcomeText);
         
-        await Voice.sendVoice(e, welcomeText, speaker);
+        await e.reply(welcomeText)
+        Voice.sendVoice(e, welcomeText, speaker).catch(() => {})
     }
 }
 
@@ -116,7 +131,8 @@ class OutNotice extends plugin {
         const speaker = await getCurrentSpeaker(speakerKey, defaultSpeaker);
         logger.mark('[退群] 角色:', speaker, '文本:', leaveText);
         
-        await Voice.sendVoice(e, leaveText, speaker);
+        await e.reply(leaveText)
+        Voice.sendVoice(e, leaveText, speaker).catch(() => {})
     }
 }
 
@@ -137,9 +153,29 @@ class ModifySpeaker extends plugin {
                 {
                     reg: '^#设置退群角色 .+$',
                     fnc: 'setOutNoticeSpeaker'
+                },
+                {
+                    reg: '^#AI角色列表$',
+                    fnc: 'listAiCharacters'
                 }
             ]
         });
+    }
+
+    async listAiCharacters(e) {
+        if (!e.group?.getAiCharacters) return e.reply('当前后端不支持AI角色查询')
+        try {
+            const list = await e.group.getAiCharacters(0)
+            const chars = list?.data?.characters || list?.characters || list?.data || []
+            const names = chars.map(c => c.name || c.character_name || c.character_id || c.id).filter(Boolean)
+            if (names.length === 0) {
+                e.reply(`未获取到AI角色列表\n原始数据: ${JSON.stringify(list).slice(0, 500)}`)
+                return
+            }
+            e.reply(`可用的AI语音角色(${names.length}个):\n${names.join('、')}`)
+        } catch (err) {
+            e.reply(`获取AI角色失败: ${err.message}`)
+        }
     }
 
     async setNewcomerSpeaker(e) {

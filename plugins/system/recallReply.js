@@ -4,7 +4,7 @@ export class recallReply extends plugin {
       name: "回复撤回",
       dsc: "撤回回复消息",
       event: "message",
-      priority: -Infinity,
+      priority: 100,
       rule: [
         {
           reg: `^#?撤回$`,
@@ -15,7 +15,7 @@ export class recallReply extends plugin {
   }
 
   async recall(e) {
-    if (!e.isMaster) return false
+    // 允许所有人使用撤回功能
     let recall
     if (e.group?.recallMsg) recall = e.group.recallMsg.bind(e.group)
     else if (e.friend?.recallMsg) recall = e.friend.recallMsg.bind(e.friend)
