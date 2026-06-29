@@ -218,7 +218,33 @@ export default class Puppeteer extends Renderer {
       if (data.imgType === "png") delete randData.quality
 
       if (!data.multiPage) {
-        buff = await body.screenshot(randData)
+        const canDSF = data.deviceScaleFactor && data.deviceScaleFactor > 1;
+        // 估算容器视觉尺寸设置足够大的视口
+        const contentSize = await body.evaluate((el, useDSF) => {
+          const container = el.querySelector('#container, .container') || el;
+          const cw = container.scrollWidth;
+          const ch = container.scrollHeight;
+          if (useDSF) return { cw, ch, scale: 1 };
+          const match = document.body.style.transform?.match(/scale\(([\d.]+)\)/);
+          const scale = match ? parseFloat(match[1]) : 1;
+          return { cw, ch, scale };
+        }, canDSF);
+        const viewScale = canDSF ? 1 : contentSize.scale;
+        const targetW = Math.ceil(contentSize.cw * viewScale) + 40;
+        const targetH = Math.ceil(contentSize.ch * viewScale) + 100;
+        await page.setViewport({
+          width: targetW,
+          height: targetH,
+          ...(canDSF ? { deviceScaleFactor: data.deviceScaleFactor } : {}),
+        });
+        await new Promise(r => setTimeout(r, canDSF ? 50 : 100));
+        // 在正确视口下重新测量容器视觉边界，只截容器区域
+        const clipBox = await body.evaluate(el => {
+          const container = el.querySelector('#container, .container') || el;
+          const rect = container.getBoundingClientRect();
+          return { x: Math.ceil(rect.x), y: Math.ceil(rect.y), width: Math.ceil(rect.width), height: Math.ceil(rect.height) };
+        });
+        buff = await page.screenshot({ ...randData, clip: clipBox });
         if (!Buffer.isBuffer(buff)) buff = Buffer.from(buff)
 
         this.renderNum++
