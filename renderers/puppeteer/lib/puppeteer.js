@@ -196,6 +196,8 @@ export default class Puppeteer extends Renderer {
       page = await this.browser.newPage()
       const pageGotoParams = { ...this.pageGotoParams, ...data.pageGotoParams }
       await page.goto(`file://${_path}${lodash.trim(savePath, ".")}`, pageGotoParams)
+      // 等待字体加载完成，避免字体加载导致文字重绘重叠
+      try { await page.evaluate(() => document.fonts.ready) } catch (_) {}
       const body = (await page.$("#container")) || (await page.$("body"))
 
       // 计算页面高度
@@ -218,7 +220,23 @@ export default class Puppeteer extends Renderer {
       if (data.imgType === "png") delete randData.quality
 
       if (!data.multiPage) {
-        buff = await body.screenshot(randData)
+        if (data.deviceScaleFactor && data.deviceScaleFactor > 1) {
+          const cw = Math.ceil(boundingBox.width) + 20
+          const ch = Math.ceil(boundingBox.height) + 100
+          await page.setViewport({
+            width: cw,
+            height: ch,
+            deviceScaleFactor: data.deviceScaleFactor,
+          })
+          await new Promise(r => setTimeout(r, 50))
+          const clipBox = await body.evaluate(el => {
+            const r = el.getBoundingClientRect()
+            return { x: Math.ceil(r.x), y: Math.ceil(r.y), width: Math.ceil(r.width), height: Math.ceil(r.height) }
+          })
+          buff = await page.screenshot({ ...randData, clip: clipBox })
+        } else {
+          buff = await body.screenshot(randData)
+        }
         if (!Buffer.isBuffer(buff)) buff = Buffer.from(buff)
 
         this.renderNum++
